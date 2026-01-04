@@ -1,0 +1,36 @@
+# YoloClaude Configuration
+# Edit this file to customize your sandbox environment
+
+# Container name
+container_name: yoloclaude
+
+# Ports to expose (host:container)
+# These will be accessible from LAN/Tailscale
+ports:
+  - 3000:3000   # Node.js / React dev server
+  - 5001:5001   # Flask / general dev (5000 often used by AirPlay on macOS)
+  - 8000:8000   # Django / Python HTTP
+  - 8080:8080   # General web server
+
+# Source directory to mount (your projects)
+src_dir: ~/src
+
+# Claude config directory
+claude_config_dir: ~/.claude
+
+# Claude installation directory (mounted read-only)
+claude_install_dir: ~/.local/share/claude
+
+# Claude binary path
+claude_bin: ~/.local/bin/claude
+
+# Additional directories to mount (optional)
+# Format: host_path:container_path[:ro]
+extra_mounts: []
+  # - /path/on/host:/path/in/container
+  # - /another/path:/container/path:ro
+
+# Container resource limits (optional, comment out to disable)
+resources:
+  memory: 8g
+  cpus: 4
