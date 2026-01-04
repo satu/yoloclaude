@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install essential tools
 RUN apt-get update && apt-get install -y \
+    apt-transport-https \
     build-essential \
     ca-certificates \
     curl \
@@ -16,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     man-db \
     nano \
     openssh-client \
+    python3 \
+    python3-pip \
     rsync \
     sudo \
     unzip \
@@ -23,6 +26,22 @@ RUN apt-get update && apt-get install -y \
     wget \
     zip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Google Cloud SDK
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
+    tee /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+    gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg && \
+    apt-get update && apt-get install -y google-cloud-cli && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Firebase CLI and Gemini CLI globally
+RUN npm install -g firebase-tools @google/gemini-cli
 
 # Set up locale
 RUN locale-gen en_US.UTF-8
@@ -47,7 +66,10 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
 RUN mkdir -p /home/dev/src \
     /home/dev/.claude \
     /home/dev/.local/share/claude \
-    /home/dev/.local/bin && \
+    /home/dev/.local/bin \
+    /home/dev/.config/gcloud \
+    /home/dev/.config/firebase \
+    /home/dev/.config/configstore && \
     chown -R dev:dev /home/dev
 
 # Set up PATH for Claude CLI

@@ -26,9 +26,10 @@ claude_bin: ~/.local/bin/claude
 
 # Additional directories to mount (optional)
 # Format: host_path:container_path[:ro]
-extra_mounts: []
-  # - /path/on/host:/path/in/container
-  # - /another/path:/container/path:ro
+extra_mounts:
+  - ~/.config/gcloud:/home/dev/.config/gcloud
+  - ~/.config/firebase:/home/dev/.config/firebase
+  - ~/.config/configstore:/home/dev/.config/configstore
 
 # Container resource limits (optional, comment out to disable)
 resources:
