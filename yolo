@@ -136,9 +136,6 @@ COMPOSE_PORTS
           memory: ${MEMORY_LIMIT:-8g}
           cpus: "${CPU_LIMIT:-4}"
 
-    security_opt:
-      - no-new-privileges:true
-
     stdin_open: true
     tty: true
     restart: unless-stopped
