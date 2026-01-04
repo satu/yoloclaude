@@ -30,6 +30,7 @@ extra_mounts:
   - ~/.config/gcloud:/home/dev/.config/gcloud
   - ~/.config/firebase:/home/dev/.config/firebase
   - ~/.config/configstore:/home/dev/.config/configstore
+  - ~/.gemini:/home/dev/.gemini
 
 # Container resource limits (optional, comment out to disable)
 resources:

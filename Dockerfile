@@ -69,7 +69,8 @@ RUN mkdir -p /home/dev/src \
     /home/dev/.local/bin \
     /home/dev/.config/gcloud \
     /home/dev/.config/firebase \
-    /home/dev/.config/configstore && \
+    /home/dev/.config/configstore \
+    /home/dev/.gemini && \
     chown -R dev:dev /home/dev
 
 # Set up PATH for Claude CLI
