@@ -35,6 +35,9 @@ claude_bin: ~/.local/bin/claude
 # Format: host_path:container_path[:ro]
 # Use ~ for home directory (expands to correct path on both host and container)
 extra_mounts:
+  - ~/.gitconfig:~/.gitconfig:ro
+  - ~/.config/git:~/.config/git:ro
+  - ~/.config/gh:~/.config/gh
   - ~/.config/gcloud:~/.config/gcloud
   - ~/.config/firebase:~/.config/firebase
   - ~/.config/configstore:~/.config/configstore
