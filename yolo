@@ -46,10 +46,14 @@ generate_env() {
     log_info "Generating environment from config..."
 
     local container_name=$(parse_yaml_value "container_name")
+    local username=$(parse_yaml_value "username")
     local src_dir=$(parse_yaml_value "src_dir")
     local claude_config_dir=$(parse_yaml_value "claude_config_dir")
     local claude_install_dir=$(parse_yaml_value "claude_install_dir")
     local claude_bin=$(parse_yaml_value "claude_bin")
+
+    # Default username to current host user
+    username="${username:-$(whoami)}"
 
     # Parse resources
     local memory=$(grep "memory:" "$CONFIG_FILE" | tail -1 | sed 's/.*memory:[[:space:]]*//')
@@ -64,6 +68,7 @@ generate_env() {
     cat > "$ENV_FILE" << EOF
 # Auto-generated from config.yaml - do not edit directly
 CONTAINER_NAME=${container_name:-yoloclaude}
+USERNAME=${username}
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 SRC_DIR=${src_dir}
@@ -81,6 +86,8 @@ EOF
 generate_compose() {
     local ports=$(parse_ports)
     local compose_ports=""
+    local username=$(parse_yaml_value "username")
+    username="${username:-$(whoami)}"
 
     for port in $ports; do
         compose_ports="${compose_ports}      - \"0.0.0.0:${port}\"\n"
@@ -93,8 +100,17 @@ generate_compose() {
             mount="${BASH_REMATCH[1]}"
             # Skip comments
             [[ "$mount" =~ ^# ]] && continue
-            mount="${mount/#\~/$HOME}"
-            extra_mounts="${extra_mounts}      - ${mount}\n"
+            # Split into host:container[:options]
+            IFS=':' read -r host_path container_path options <<< "$mount"
+            # Expand ~ on host side to $HOME
+            host_path="${host_path/#\~/$HOME}"
+            # Expand ~ on container side to /home/$username
+            container_path="${container_path/#\~/\/home\/${username}}"
+            if [[ -n "$options" ]]; then
+                extra_mounts="${extra_mounts}      - ${host_path}:${container_path}:${options}\n"
+            else
+                extra_mounts="${extra_mounts}      - ${host_path}:${container_path}\n"
+            fi
         fi
     done < <(sed -n '/^extra_mounts:/,/^[a-z]/p' "$CONFIG_FILE" | tail -n +2)
 
@@ -104,6 +120,7 @@ services:
     build:
       context: .
       args:
+        USERNAME: ${USERNAME}
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
     container_name: ${CONTAINER_NAME:-yoloclaude}
@@ -111,12 +128,12 @@ services:
 
     volumes:
       # Named volume for persistent home directory
-      - yoloclaude-home:/home/dev
+      - yoloclaude-home:/home/${USERNAME}
       # Bind mounts (overlay the named volume)
-      - ${SRC_DIR}:/home/dev/src
-      - ${CLAUDE_CONFIG_DIR}:/home/dev/.claude
-      - ${CLAUDE_INSTALL_DIR}:/home/dev/.local/share/claude:ro
-      - ${CLAUDE_BIN}:/home/dev/.local/bin/claude:ro
+      - ${SRC_DIR}:/home/${USERNAME}/src
+      - ${CLAUDE_CONFIG_DIR}:/home/${USERNAME}/.claude
+      - ${CLAUDE_INSTALL_DIR}:/home/${USERNAME}/.local/share/claude:ro
+      - ${CLAUDE_BIN}:/home/${USERNAME}/.local/bin/claude:ro
 COMPOSE_HEADER
 
     # Add extra mounts if any

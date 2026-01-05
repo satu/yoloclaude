@@ -4,6 +4,10 @@
 # Container name
 container_name: yoloclaude
 
+# Username inside container (should match host username for path compatibility)
+# Leave empty to use current host username automatically
+username:
+
 # Ports to expose (host:container)
 # These will be accessible from LAN/Tailscale
 ports:
@@ -26,11 +30,12 @@ claude_bin: ~/.local/bin/claude
 
 # Additional directories to mount (optional)
 # Format: host_path:container_path[:ro]
+# Use ~ for home directory (expands to correct path on both host and container)
 extra_mounts:
-  - ~/.config/gcloud:/home/dev/.config/gcloud
-  - ~/.config/firebase:/home/dev/.config/firebase
-  - ~/.config/configstore:/home/dev/.config/configstore
-  - ~/.gemini:/home/dev/.gemini
+  - ~/.config/gcloud:~/.config/gcloud
+  - ~/.config/firebase:~/.config/firebase
+  - ~/.config/configstore:~/.config/configstore
+  - ~/.gemini:~/.gemini
 
 # Container resource limits (optional, comment out to disable)
 resources:

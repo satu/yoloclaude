@@ -49,46 +49,47 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
-# Create dev user with UID/GID matching host (1000:1000)
+# Create user with UID/GID/username matching host
+ARG USERNAME=dev
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 
-# Remove existing ubuntu user if present, then create dev user
+# Remove existing ubuntu user if present, then create user matching host
 RUN userdel -r ubuntu 2>/dev/null || true && \
     groupdel ubuntu 2>/dev/null || true && \
     if ! getent group ${GROUP_ID} > /dev/null 2>&1; then \
-        groupadd -g ${GROUP_ID} dev; \
+        groupadd -g ${GROUP_ID} ${USERNAME}; \
     fi && \
-    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash dev && \
-    echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Create directories that will be used for mounts
-RUN mkdir -p /home/dev/src \
-    /home/dev/.claude \
-    /home/dev/.local/share/claude \
-    /home/dev/.local/bin \
-    /home/dev/.config/gcloud \
-    /home/dev/.config/firebase \
-    /home/dev/.config/configstore \
-    /home/dev/.gemini && \
-    chown -R dev:dev /home/dev
+RUN mkdir -p /home/${USERNAME}/src \
+    /home/${USERNAME}/.claude \
+    /home/${USERNAME}/.local/share/claude \
+    /home/${USERNAME}/.local/bin \
+    /home/${USERNAME}/.config/gcloud \
+    /home/${USERNAME}/.config/firebase \
+    /home/${USERNAME}/.config/configstore \
+    /home/${USERNAME}/.gemini && \
+    chown -R ${USERNAME}:${GROUP_ID} /home/${USERNAME}
 
 # Set up PATH for Claude CLI
-ENV PATH="/home/dev/.local/bin:${PATH}"
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
-# Switch to dev user
-USER dev
-WORKDIR /home/dev
+# Switch to user
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
 
 # Set up shell prompt with container indicator
-RUN echo 'PS1="[\[\e[1;36m\]yolo\[\e[0m\]] \[\e[1;32m\]\u\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ "' >> /home/dev/.bashrc
+RUN echo 'PS1="[\[\e[1;36m\]yolo\[\e[0m\]] \[\e[1;32m\]\u\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ "' >> ~/.bashrc
 
 # Add helpful aliases
-RUN echo 'alias ll="ls -la"' >> /home/dev/.bashrc && \
-    echo 'alias src="cd ~/src"' >> /home/dev/.bashrc
+RUN echo 'alias ll="ls -la"' >> ~/.bashrc && \
+    echo 'alias src="cd ~/src"' >> ~/.bashrc
 
 # Default working directory
-WORKDIR /home/dev/src
+WORKDIR /home/${USERNAME}/src
 
 # Keep container running
 CMD ["sleep", "infinity"]
