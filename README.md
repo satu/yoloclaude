@@ -37,8 +37,8 @@ nano config.yaml
 # Enter the sandbox
 ./yolo shell
 
-# Inside the container, run claude in yolo mode
-claude
+# Or run Claude directly in yolo mode
+./yolo claude myproject
 ```
 
 ## Commands
@@ -49,6 +49,7 @@ claude
 | `./yolo start` | Start the container (detached) |
 | `./yolo stop` | Stop the container |
 | `./yolo shell` | Enter interactive shell |
+| `./yolo claude <project>` | Run Claude in yolo mode in `~/src/<project>` |
 | `./yolo status` | Show container status |
 | `./yolo logs` | Show container logs (`-f` to follow) |
 | `./yolo restart` | Stop and start |
@@ -64,10 +65,13 @@ container_name: yoloclaude
 
 # Ports to expose (host:container)
 ports:
-  - 3000:3000
-  - 5001:5001
-  - 8000:8000
-  - 8080:8080
+  - 3000:3000   # Node.js / React
+  - 5001:5001   # Flask / general dev
+  - 5173:5173   # Vite
+  - 8000:8000   # Django / Python
+  - 8080:8080   # General web server
+  - 9099:9099   # Firebase Auth emulator
+  - 9399:9399   # Firebase Data Connect
 
 # Directories to mount
 src_dir: ~/src
@@ -89,7 +93,7 @@ Changes take effect on next `./yolo start` or `./yolo restart`.
 
 ## Inside the Container
 
-- **User**: `dev` with passwordless sudo
+- **User**: Matches your host username with passwordless sudo
 - **Projects**: `~/src` (your host's src directory)
 - **Claude config**: `~/.claude`
 - **Prompt**: Shows `[yolo]` prefix so you know you're in the sandbox
