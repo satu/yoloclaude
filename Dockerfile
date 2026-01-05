@@ -9,10 +9,12 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
     curl \
+    dbus \
     git \
     gnupg \
     jq \
     less \
+    libsecret-tools \
     locales \
     man-db \
     nano \
@@ -67,6 +69,7 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
 RUN mkdir -p /home/${USERNAME}/src \
     /home/${USERNAME}/.claude \
     /home/${USERNAME}/.local/share/claude \
+    /home/${USERNAME}/.local/share/keyrings \
     /home/${USERNAME}/.local/bin \
     /home/${USERNAME}/.config/gcloud \
     /home/${USERNAME}/.config/firebase \

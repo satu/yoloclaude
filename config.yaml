@@ -36,6 +36,7 @@ extra_mounts:
   - ~/.config/firebase:~/.config/firebase
   - ~/.config/configstore:~/.config/configstore
   - ~/.gemini:~/.gemini
+  - ~/.local/share/keyrings:~/.local/share/keyrings
 
 # Container resource limits (optional, comment out to disable)
 resources:

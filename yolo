@@ -114,26 +114,36 @@ generate_compose() {
         fi
     done < <(sed -n '/^extra_mounts:/,/^[a-z]/p' "$CONFIG_FILE" | tail -n +2)
 
-    cat > "$COMPOSE_FILE" << 'COMPOSE_HEADER'
+    # Get XDG_RUNTIME_DIR for D-Bus socket
+    local xdg_runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+    cat > "$COMPOSE_FILE" << COMPOSE_HEADER
 services:
   yoloclaude:
     build:
       context: .
       args:
-        USERNAME: ${USERNAME}
-        USER_ID: ${USER_ID:-1000}
-        GROUP_ID: ${GROUP_ID:-1000}
-    container_name: ${CONTAINER_NAME:-yoloclaude}
+        USERNAME: \${USERNAME}
+        USER_ID: \${USER_ID:-1000}
+        GROUP_ID: \${GROUP_ID:-1000}
+    container_name: \${CONTAINER_NAME:-yoloclaude}
     hostname: yoloclaude
 
+    environment:
+      - TERM=xterm-256color
+      - XDG_RUNTIME_DIR=${xdg_runtime_dir}
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=${xdg_runtime_dir}/bus
+
     volumes:
+      # D-Bus socket for keyring access
+      - ${xdg_runtime_dir}/bus:${xdg_runtime_dir}/bus
       # Named volume for persistent home directory
-      - yoloclaude-home:/home/${USERNAME}
+      - yoloclaude-home:/home/\${USERNAME}
       # Bind mounts (overlay the named volume)
-      - ${SRC_DIR}:/home/${USERNAME}/src
-      - ${CLAUDE_CONFIG_DIR}:/home/${USERNAME}/.claude
-      - ${CLAUDE_INSTALL_DIR}:/home/${USERNAME}/.local/share/claude:ro
-      - ${CLAUDE_BIN}:/home/${USERNAME}/.local/bin/claude:ro
+      - \${SRC_DIR}:/home/\${USERNAME}/src
+      - \${CLAUDE_CONFIG_DIR}:/home/\${USERNAME}/.claude
+      - \${CLAUDE_INSTALL_DIR}:/home/\${USERNAME}/.local/share/claude:ro
+      - \${CLAUDE_BIN}:/home/\${USERNAME}/.local/bin/claude:ro
 COMPOSE_HEADER
 
     # Add extra mounts if any
@@ -152,6 +162,10 @@ COMPOSE_PORTS
         limits:
           memory: ${MEMORY_LIMIT:-8g}
           cpus: "${CPU_LIMIT:-4}"
+
+    # Allow D-Bus access for keyring (AppArmor blocks it by default)
+    security_opt:
+      - apparmor:unconfined
 
     stdin_open: true
     tty: true
