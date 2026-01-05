@@ -17,6 +17,7 @@ ports:
   - 8000:8000   # Django / Python HTTP
   - 8080:8080   # General web server
   - 9099:9099   # Firebase Auth emulator
+  - 9399:9399   # Firebase Data Connect
 
 # Source directory to mount (your projects)
 src_dir: ~/src
