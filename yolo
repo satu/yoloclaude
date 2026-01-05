@@ -257,6 +257,28 @@ cmd_rebuild() {
     cmd_start
 }
 
+cmd_claude() {
+    check_prereqs
+    local project="$1"
+
+    if [[ -z "$project" ]]; then
+        log_error "Usage: ./yolo claude <project>"
+        log_info "Run Claude in yolo mode in ~/src/<project>"
+        exit 1
+    fi
+
+    local container_name=$(parse_yaml_value "container_name")
+    container_name="${container_name:-yoloclaude}"
+
+    if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
+        log_warn "Container not running. Starting it first..."
+        cmd_start
+    fi
+
+    log_info "Starting Claude in yolo mode in ~/src/${project}..."
+    docker exec -it "$container_name" bash -c "cd ~/src/${project} && claude --dangerously-skip-permissions"
+}
+
 cmd_help() {
     cat << EOF
 ${BLUE}YoloClaude${NC} - Secure Docker sandbox for AI coding agents
@@ -269,6 +291,7 @@ ${YELLOW}Commands:${NC}
   start      Start the container
   stop       Stop the container
   shell      Enter interactive shell in the container
+  claude     Run Claude in yolo mode: ./yolo claude <project>
   status     Show container status
   logs       Show container logs (use -f to follow)
   restart    Stop and start the container
@@ -301,6 +324,7 @@ case "${1:-help}" in
     start)   shift; cmd_start "$@" ;;
     stop)    shift; cmd_stop "$@" ;;
     shell)   shift; cmd_shell "$@" ;;
+    claude)  shift; cmd_claude "$@" ;;
     status)  shift; cmd_status "$@" ;;
     logs)    shift; cmd_logs "$@" ;;
     restart) shift; cmd_restart "$@" ;;
