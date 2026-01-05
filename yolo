@@ -73,6 +73,7 @@ USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 SRC_DIR=${src_dir}
 CLAUDE_CONFIG_DIR=${claude_config_dir}
+CLAUDE_JSON=${HOME}/.claude.json
 CLAUDE_INSTALL_DIR=${claude_install_dir}
 CLAUDE_BIN=${claude_bin}
 MEMORY_LIMIT=${memory:-8g}
@@ -132,6 +133,7 @@ services:
       # Bind mounts (overlay the named volume)
       - ${SRC_DIR}:/home/${USERNAME}/src
       - ${CLAUDE_CONFIG_DIR}:/home/${USERNAME}/.claude
+      - ${CLAUDE_JSON}:/home/${USERNAME}/.claude.json
       - ${CLAUDE_INSTALL_DIR}:/home/${USERNAME}/.local/share/claude:ro
       - ${CLAUDE_BIN}:/home/${USERNAME}/.local/bin/claude:ro
 COMPOSE_HEADER
