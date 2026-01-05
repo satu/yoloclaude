@@ -1,5 +1,6 @@
 # Generated files
 .env
+docker-compose.yaml
 
 # IDE
 .idea/
