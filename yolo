@@ -278,7 +278,7 @@ cmd_claude() {
     fi
 
     log_info "Starting Claude in yolo mode in ~/src/${project}..."
-    docker exec -it "$container_name" bash -c "cd ~/src/${project} && claude --dangerously-skip-permissions"
+    docker exec -it "$container_name" bash -c "cd ~/src/${project} && claude --dangerously-skip-permissions --continue"
 }
 
 cmd_help() {
