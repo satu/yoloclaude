@@ -49,7 +49,7 @@ nano config.yaml
 | `./yolo start` | Start the container (detached) |
 | `./yolo stop` | Stop the container |
 | `./yolo shell` | Enter interactive shell |
-| `./yolo claude <project>` | Run Claude in yolo mode in `~/src/<project>` |
+| `./yolo claude <project>` | Run Claude in yolo mode in `~/src/<project>` (resumes last conversation) |
 | `./yolo status` | Show container status |
 | `./yolo logs` | Show container logs (`-f` to follow) |
 | `./yolo restart` | Stop and start |
@@ -66,11 +66,14 @@ container_name: yoloclaude
 # Ports to expose (host:container)
 ports:
   - 3000:3000   # Node.js / React
-  - 5001:5001   # Flask / general dev
+  - 4000:4000   # Firebase Emulator UI
+  - 5001:5001   # Firebase Functions
   - 5173:5173   # Vite
   - 8000:8000   # Django / Python
   - 8080:8080   # General web server
-  - 9099:9099   # Firebase Auth emulator
+  - 9000:9000   # Firebase Realtime Database
+  - 9099:9099   # Firebase Auth
+  - 9199:9199   # Firebase Storage
   - 9399:9399   # Firebase Data Connect
 
 # Directories to mount
@@ -99,6 +102,18 @@ Changes take effect on next `./yolo start` or `./yolo restart`.
 - **Prompt**: Shows `[yolo]` prefix so you know you're in the sandbox
 
 Installed packages persist between container restarts thanks to the named volume.
+
+## Included Tools
+
+- **Node.js 20.x** and npm
+- **Python 3** and pip
+- **Google Cloud SDK** (`gcloud`)
+- **Firebase CLI** (`firebase`)
+- **GitHub CLI** (`gh`)
+- **Gemini CLI** (`gemini`)
+- Git, curl, wget, and common build tools
+
+Host credentials for `gh`, `gcloud`, and `firebase` are mounted automatically.
 
 ## Security
 
