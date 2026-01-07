@@ -107,6 +107,7 @@ Installed packages persist between container restarts thanks to the named volume
 
 - **Node.js 20.x** and npm
 - **Python 3** and pip
+- **OpenJDK 21**
 - **Google Cloud SDK** (`gcloud`)
 - **Firebase CLI** (`firebase`)
 - **GitHub CLI** (`gh`)
