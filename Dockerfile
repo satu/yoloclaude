@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     locales \
     man-db \
     nano \
+    openjdk-21-jdk \
     openssh-client \
     python3 \
     python3-pip \
