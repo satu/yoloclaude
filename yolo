@@ -65,12 +65,16 @@ generate_env() {
     claude_install_dir="${claude_install_dir/#\~/$HOME}"
     claude_bin="${claude_bin/#\~/$HOME}"
 
+    # Get docker group GID for socket access
+    local docker_gid=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "998")
+
     cat > "$ENV_FILE" << EOF
 # Auto-generated from config.yaml - do not edit directly
 CONTAINER_NAME=${container_name:-yoloclaude}
 USERNAME=${username}
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
+DOCKER_GID=${docker_gid}
 SRC_DIR=${src_dir}
 CLAUDE_CONFIG_DIR=${claude_config_dir}
 CLAUDE_JSON=${HOME}/.claude.json
@@ -124,8 +128,12 @@ services:
         USERNAME: ${USERNAME}
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
+        DOCKER_GID: ${DOCKER_GID:-998}
     container_name: ${CONTAINER_NAME:-yoloclaude}
     hostname: yoloclaude
+
+    environment:
+      - DOCKER_API_VERSION=1.41
 
     volumes:
       # Named volume for persistent home directory
@@ -159,7 +167,7 @@ COMPOSE_PORTS
 
     # Docker-in-Docker support
     privileged: true
-    cgroupns: host
+    cgroup: host
     security_opt:
       - seccomp:unconfined
       - apparmor:unconfined

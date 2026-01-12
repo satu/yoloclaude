@@ -75,6 +75,7 @@ ENV LC_ALL=en_US.UTF-8
 ARG USERNAME=dev
 ARG USER_ID=1000
 ARG GROUP_ID=1000
+ARG DOCKER_GID=998
 
 # Remove existing ubuntu user if present, then create user matching host
 RUN userdel -r ubuntu 2>/dev/null || true && \
@@ -83,8 +84,15 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
         groupadd -g ${GROUP_ID} ${USERNAME}; \
     fi && \
     useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-    usermod -aG docker ${USERNAME} 2>/dev/null || true
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Add user to docker group matching host's docker socket GID
+# This ensures the user can access /var/run/docker.sock
+RUN DOCKER_GROUP=$(getent group ${DOCKER_GID} | cut -d: -f1) && \
+    if [ -z "$DOCKER_GROUP" ]; then \
+        groupadd -g ${DOCKER_GID} docker && DOCKER_GROUP=docker; \
+    fi && \
+    usermod -aG $DOCKER_GROUP ${USERNAME}
 
 # Create directories that will be used for mounts
 RUN mkdir -p /home/${USERNAME}/src \
