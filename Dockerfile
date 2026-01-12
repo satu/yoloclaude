@@ -51,6 +51,13 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
     apt-get update && apt-get install -y gh && \
     rm -rf /var/lib/apt/lists/*
 
+# Install Docker CLI
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu noble stable" | \
+    tee /etc/apt/sources.list.d/docker.list && \
+    apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Firebase CLI and Gemini CLI globally
 RUN npm install -g firebase-tools @google/gemini-cli
 
@@ -76,7 +83,8 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
         groupadd -g ${GROUP_ID} ${USERNAME}; \
     fi && \
     useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    usermod -aG docker ${USERNAME} 2>/dev/null || true
 
 # Create directories that will be used for mounts
 RUN mkdir -p /home/${USERNAME}/src \

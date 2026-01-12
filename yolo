@@ -136,6 +136,8 @@ services:
       - ${CLAUDE_JSON}:/home/${USERNAME}/.claude.json
       - ${CLAUDE_INSTALL_DIR}:/home/${USERNAME}/.local/share/claude:ro
       - ${CLAUDE_BIN}:/home/${USERNAME}/.local/bin/claude:ro
+      # Docker socket for Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock
 COMPOSE_HEADER
 
     # Add extra mounts if any
@@ -154,6 +156,15 @@ COMPOSE_PORTS
         limits:
           memory: ${MEMORY_LIMIT:-8g}
           cpus: "${CPU_LIMIT:-4}"
+
+    # Docker-in-Docker support
+    privileged: true
+    cgroupns: host
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
 
     stdin_open: true
     tty: true
