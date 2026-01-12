@@ -14,6 +14,7 @@ AI coding agents work best when they can execute commands freely without constan
 - **Claude CLI ready**: Your Claude installation is mounted (read-only)
 - **LAN/Tailscale access**: Ports bound to `0.0.0.0` for remote access
 - **Configurable**: Easy YAML config for ports, mounts, and resources
+- **Docker-in-Docker**: Build and run containers from within the sandbox
 
 ## Prerequisites
 
@@ -108,10 +109,14 @@ Installed packages persist between container restarts thanks to the named volume
 - **Node.js 20.x** and npm
 - **Python 3** and pip
 - **OpenJDK 21**
+- **Docker CLI** and Docker Compose
 - **Google Cloud SDK** (`gcloud`)
 - **Firebase CLI** (`firebase`)
 - **GitHub CLI** (`gh`)
 - **Gemini CLI** (`gemini`)
+- **cloudflared** for Cloudflare tunnels
+- **ffmpeg** for media processing
+- **tmux** for terminal multiplexing
 - Git, curl, wget, and common build tools
 
 Host credentials for `gh`, `gcloud`, and `firebase` are mounted automatically.
@@ -119,10 +124,11 @@ Host credentials for `gh`, `gcloud`, and `firebase` are mounted automatically.
 ## Security
 
 - Container runs as non-root user
-- No `--privileged` flag
 - Claude CLI binaries mounted read-only
 - Explicit port mapping (no host networking)
 - Resource limits configurable
+
+**Note**: The container runs in privileged mode to enable Docker-in-Docker. This is intentional for the "yolo" use case but means the sandbox provides isolation at the convenience level, not security hardening.
 
 ## Troubleshooting
 
