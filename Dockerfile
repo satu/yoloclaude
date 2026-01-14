@@ -5,6 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install essential tools
 RUN apt-get update && apt-get install -y \
+    adb \
     apt-transport-https \
     build-essential \
     ca-certificates \

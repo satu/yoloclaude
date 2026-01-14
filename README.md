@@ -110,6 +110,7 @@ Installed packages persist between container restarts thanks to the named volume
 - **Python 3** and pip
 - **OpenJDK 21**
 - **Docker CLI** and Docker Compose
+- **ADB** (Android Debug Bridge)
 - **Google Cloud SDK** (`gcloud`)
 - **Firebase CLI** (`firebase`)
 - **GitHub CLI** (`gh`)
@@ -137,6 +138,20 @@ Host credentials for `gh`, `gcloud`, and `firebase` are mounted automatically.
 **Permission denied on mounted files**: The container user has UID/GID 1000. If your host user differs, rebuild with adjusted values in `docker-compose.yaml`.
 
 **Claude CLI not found**: Ensure `claude_bin` and `claude_install_dir` in `config.yaml` point to your actual Claude installation.
+
+## Using ADB
+
+The container includes ADB and is configured to connect to the host's ADB server. Since the host's ADB server only listens on localhost, you need to run a port forwarder:
+
+```bash
+# Install socat (one time)
+sudo apt install socat
+
+# Start the forwarder (run in a terminal before using adb in the container)
+socat TCP-LISTEN:5037,bind=172.17.0.1,fork TCP:127.0.0.1:5037
+```
+
+Then inside the container, `adb devices` will show your connected devices.
 
 ## License
 

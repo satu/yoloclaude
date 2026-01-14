@@ -132,8 +132,12 @@ services:
     container_name: ${CONTAINER_NAME:-yoloclaude}
     hostname: yoloclaude
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     environment:
       - DOCKER_API_VERSION=1.41
+      - ADB_SERVER_SOCKET=tcp:host.docker.internal:5037
 
     volumes:
       # Named volume for persistent home directory
