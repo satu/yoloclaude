@@ -45,6 +45,7 @@ extra_mounts:
   - ~/.config/firebase:~/.config/firebase
   - ~/.config/configstore:~/.config/configstore
   - ~/.gemini:~/.gemini
+  - ~/Android:~/Android
 
 # Container resource limits (optional, comment out to disable)
 resources:

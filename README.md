@@ -141,19 +141,7 @@ Host credentials for `gh`, `gcloud`, and `firebase` are mounted automatically.
 
 ## Using ADB
 
-The container includes ADB and is configured to connect to the host's ADB server. Port forwarding is handled automatically when you start the container.
-
-**Prerequisites**: Install `socat` on the host (one time):
-```bash
-sudo apt install socat
-```
-
-When you run `./yolo start` or `./yolo restart`, the script will automatically:
-1. Check if `socat` is installed
-2. Check if the host's ADB server is running
-3. Start port forwarding in the background
-
-Then inside the container, `adb devices` will show your connected devices.
+The container includes ADB for Android development. The `~/Android` directory is mounted from the host.
 
 ## License
 

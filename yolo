@@ -21,52 +21,6 @@ log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Ensure socat is running for ADB port forwarding
-# This allows the container to connect to the host's ADB server
-ensure_adb_forwarding() {
-    local DOCKER_BRIDGE_IP="172.17.0.1"
-    local ADB_PORT="5037"
-
-    # Check if socat is installed
-    if ! command -v socat &> /dev/null; then
-        log_warn "socat not installed - ADB forwarding disabled"
-        log_info "Install with: sudo apt install socat"
-        return 0
-    fi
-
-    # Check if socat is already running for ADB
-    if pgrep -f "socat.*${ADB_PORT}.*${DOCKER_BRIDGE_IP}" > /dev/null 2>&1; then
-        log_success "ADB forwarding already running"
-        return 0
-    fi
-
-    # Check if ADB server is running on the host
-    if ! ss -tlnp 2>/dev/null | grep -q ":${ADB_PORT}"; then
-        log_warn "ADB server not running on host - skipping forwarding"
-        return 0
-    fi
-
-    # Start socat in the background
-    log_info "Starting ADB port forwarding..."
-    nohup socat TCP-LISTEN:${ADB_PORT},bind=${DOCKER_BRIDGE_IP},fork,reuseaddr TCP:127.0.0.1:${ADB_PORT} > /dev/null 2>&1 &
-    sleep 0.5
-
-    if pgrep -f "socat.*${ADB_PORT}.*${DOCKER_BRIDGE_IP}" > /dev/null 2>&1; then
-        log_success "ADB forwarding started (PID: $(pgrep -f "socat.*${ADB_PORT}.*${DOCKER_BRIDGE_IP}"))"
-    else
-        log_warn "Failed to start ADB forwarding"
-    fi
-}
-
-# Stop ADB forwarding
-stop_adb_forwarding() {
-    local pids=$(pgrep -f "socat.*5037.*172.17.0.1" 2>/dev/null || true)
-    if [[ -n "$pids" ]]; then
-        kill $pids 2>/dev/null || true
-        log_info "Stopped ADB forwarding"
-    fi
-}
-
 # Simple YAML parser for our config format
 parse_yaml_value() {
     local key="$1"
@@ -178,12 +132,8 @@ services:
     container_name: ${CONTAINER_NAME:-yoloclaude}
     hostname: yoloclaude
 
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
     environment:
       - DOCKER_API_VERSION=1.41
-      - ADB_SERVER_SOCKET=tcp:host.docker.internal:5037
 
     volumes:
       # Named volume for persistent home directory
@@ -272,7 +222,6 @@ cmd_start() {
     log_info "Starting container..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d "$@"
     log_success "Container started!"
-    ensure_adb_forwarding
     log_info "Enter shell with: ./yolo shell"
 }
 
@@ -280,7 +229,6 @@ cmd_stop() {
     check_prereqs
     log_info "Stopping container..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down "$@"
-    stop_adb_forwarding
     log_success "Container stopped."
 }
 
