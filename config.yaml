@@ -11,12 +11,13 @@ username:
 # Ports to expose (host:container)
 # These will be accessible from LAN/Tailscale
 ports:
-  - 3000:3000   # Node.js / React dev server
+  - 3000:3000   # Vite / Node.js / React dev server
   - 4000:4000   # Firebase Emulator UI
   - 5001:5001   # Firebase Functions emulator
-  - 5173:5173   # Vite dev server
+  - 5173:5173   # Vite dev server (alternate)
   - 8000:8000   # Django / Python HTTP
   - 8080:8080   # General web server
+  - 8787:8787   # Wrangler (Cloudflare Workers)
   - 9000:9000   # Firebase Realtime Database emulator
   - 9099:9099   # Firebase Auth emulator
   - 9199:9199   # Firebase Storage emulator
