@@ -21,6 +21,31 @@ log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# Sync .claude.json from host to container
+# (bind mounts break when host file is replaced, so we copy instead)
+sync_claude_json_to_container() {
+    local container_name=$(parse_yaml_value "container_name")
+    container_name="${container_name:-yoloclaude}"
+    local host_file="${HOME}/.claude.json"
+
+    if [[ -f "$host_file" ]]; then
+        docker cp "$host_file" "${container_name}:/home/$(whoami)/.claude.json" 2>/dev/null && \
+            log_success "Synced .claude.json to container" || \
+            log_warn "Could not sync .claude.json to container"
+    fi
+}
+
+# Sync .claude.json from container to host
+sync_claude_json_to_host() {
+    local container_name=$(parse_yaml_value "container_name")
+    container_name="${container_name:-yoloclaude}"
+    local host_file="${HOME}/.claude.json"
+
+    docker cp "${container_name}:/home/$(whoami)/.claude.json" "$host_file" 2>/dev/null && \
+        log_success "Synced .claude.json to host" || \
+        log_warn "Could not sync .claude.json to host"
+}
+
 # Simple YAML parser for our config format
 parse_yaml_value() {
     local key="$1"
@@ -77,7 +102,6 @@ GROUP_ID=$(id -g)
 DOCKER_GID=${docker_gid}
 SRC_DIR=${src_dir}
 CLAUDE_CONFIG_DIR=${claude_config_dir}
-CLAUDE_JSON=${HOME}/.claude.json
 CLAUDE_INSTALL_DIR=${claude_install_dir}
 CLAUDE_BIN=${claude_bin}
 MEMORY_LIMIT=${memory:-8g}
@@ -141,7 +165,6 @@ services:
       # Bind mounts (overlay the named volume)
       - ${SRC_DIR}:/home/${USERNAME}/src
       - ${CLAUDE_CONFIG_DIR}:/home/${USERNAME}/.claude
-      - ${CLAUDE_JSON}:/home/${USERNAME}/.claude.json
       - ${CLAUDE_INSTALL_DIR}:/home/${USERNAME}/.local/share/claude:ro
       - ${CLAUDE_BIN}:/home/${USERNAME}/.local/bin/claude:ro
       # Docker socket for Docker-in-Docker
@@ -222,11 +245,13 @@ cmd_start() {
     log_info "Starting container..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d "$@"
     log_success "Container started!"
+    sync_claude_json_to_container
     log_info "Enter shell with: ./yolo shell"
 }
 
 cmd_stop() {
     check_prereqs
+    sync_claude_json_to_host
     log_info "Stopping container..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down "$@"
     log_success "Container stopped."
