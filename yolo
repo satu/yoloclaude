@@ -267,8 +267,14 @@ cmd_shell() {
         cmd_start
     fi
 
-    log_info "Entering container shell..."
-    docker exec -it "$container_name" bash
+    if [[ $# -gt 0 ]]; then
+        # Run command directly
+        docker exec -it "$container_name" bash -c "$*"
+    else
+        # Interactive shell
+        log_info "Entering container shell..."
+        docker exec -it "$container_name" bash
+    fi
 }
 
 cmd_status() {
@@ -336,7 +342,7 @@ ${YELLOW}Commands:${NC}
   build      Build the Docker image
   start      Start the container
   stop       Stop the container
-  shell      Enter interactive shell in the container
+  shell      Enter interactive shell, or run a command: ./yolo shell [cmd]
   claude     Run Claude in yolo mode: ./yolo claude <project>
   status     Show container status
   logs       Show container logs (use -f to follow)
@@ -352,6 +358,7 @@ ${YELLOW}Examples:${NC}
   ./yolo build          # Build the image
   ./yolo start          # Start the container
   ./yolo shell          # Enter the sandbox shell
+  ./yolo shell ls -la   # Run a command in the container
   ./yolo logs -f        # Follow container logs
   ./yolo rebuild        # Full rebuild (no cache)
 
