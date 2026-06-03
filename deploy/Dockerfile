@@ -77,6 +77,20 @@ RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | \
 # Install act (run GitHub Actions locally)
 RUN curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b /usr/local/bin
 
+# Install trellm's headed-browser stack (Xvfb virtual display + x11vnc/noVNC for
+# remote viewing + google-chrome for patchright CDP on :9222). Previously these
+# were apt-installed at runtime by trellm/scripts/setup-browser.sh into the
+# container's writable layer — baking them here makes the image self-sufficient
+# and portable (a fresh container/host has the browser stack with no setup step).
+RUN apt-get update && apt-get install -y \
+        xvfb x11vnc novnc websockify \
+    && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+        | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+        > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set up locale
 RUN locale-gen en_US.UTF-8
 ENV LANG=en_US.UTF-8
