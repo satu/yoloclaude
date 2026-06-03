@@ -1,0 +1,88 @@
+name: yoloclaude
+
+# Self-contained, portable yoloclaude stack for `fleet`.
+#
+# This is the deploy variant of the top-level ./yolo dev sandbox. The crucial
+# difference: ALL state lives in named volumes (nothing host-bound), so the
+# whole stack — including its Tailscale identity — can be migrated between hosts
+# by `fleet` exactly like humphrey. The interactive ./yolo flow on magnus stays
+# as-is; this file is what runs on the destination (and on magnus once lifted).
+#
+# What changed vs the host-coupled ./yolo-generated compose:
+#   * ~/src is a NAMED VOLUME (yoloclaude-src), seeded once from the host's ~/src
+#     with only the projects trellm manages — NOT the 275 GB host bind.
+#   * The 8 host credential binds (gh/gcloud/firebase/configstore/gitconfig/
+#     git/.gemini/Android) are GONE — creds are folded into yoloclaude-home and
+#     re-verified in-container (see deploy/README.md).
+#   * The docker.sock bind is DISABLED (commented) — see the volumes note.
+
+services:
+  yoloclaude:
+    build:
+      context: .
+      args:
+        USERNAME: ${USERNAME:-dariofreni}
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+        DOCKER_GID: ${DOCKER_GID:-998}
+    image: yoloclaude-yoloclaude:latest
+    container_name: ${CONTAINER_NAME:-yoloclaude}
+    hostname: yoloclaude
+
+    environment:
+      - DOCKER_API_VERSION=1.41
+
+    volumes:
+      # Persistent home — carries ALL creds + state across hosts:
+      # ~/.claude(+.claude.json), ~/.config/{gh,gcloud,firebase,configstore},
+      # ~/.gitconfig, ~/.trellm, ~/.ssh, ~/.password-store, ~/.gnupg,
+      # ~/.chrome-trellm, ~/.gsutil, ~/.cloudflared, ~/.docker.
+      - yoloclaude-home:/home/${USERNAME:-dariofreni}
+
+      # Projects trellm manages — a named volume seeded ONCE from the host's
+      # ~/src (deploy/seed-src-volume.sh). Replaces the old 275 GB host bind so
+      # the stack is portable; fleet migrates it like any other volume.
+      - yoloclaude-src:/home/${USERNAME:-dariofreni}/src
+
+      # Tailscale identity (node `yoloclaude`, MagicDNS) — fleet syncs this FIRST
+      # so the node reappears with the same name/IP wherever the stack lands.
+      - yoloclaude-tailscale:/var/lib/tailscale
+
+      # Docker-out-of-Docker: DISABLED by default. We needed it when building
+      # Humphrey into its own container; the autonomous trellm runner does not.
+      # Re-enabling it on hertz binds the SAME daemon that runs humphrey (an
+      # autonomous card could `docker prune`/OOM and evict humphrey), and the
+      # host docker GID differs per host (magnus 998 / hertz 988) — entrypoint.sh
+      # reconciles that GID at runtime when this line is present.
+      # - /var/run/docker.sock:/var/run/docker.sock
+
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT:-16g}
+          cpus: "${CPU_LIMIT:-4}"
+
+    # Privileged stack: kernel-mode tailscaled (creates the tailscale0 iface) +
+    # the patchright/Chrome browser stack trellm drives. cgroup:host + SYS_ADMIN
+    # + unconfined are inherited verbatim from the original sandbox so the lift
+    # changes nothing operationally. hertz has /dev/net/tun and a modern kernel,
+    # so none of this needs a per-host override (unlike the NAS).
+    privileged: true
+    cgroup: host
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
+
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+volumes:
+  yoloclaude-home:
+    name: yoloclaude-home
+  yoloclaude-src:
+    name: yoloclaude-src
+  yoloclaude-tailscale:
+    name: yoloclaude-tailscale
