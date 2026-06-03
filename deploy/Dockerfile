@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     nano \
     openjdk-21-jdk \
     openssh-client \
+    openssh-server \
     python3 \
     python3-pip \
     rsync \
@@ -30,6 +31,11 @@ RUN apt-get update && apt-get install -y \
     wget \
     zip \
     && rm -rf /var/lib/apt/lists/*
+
+# Harden sshd: key auth only (entrypoint.sh installs a host key persisted in the
+# home volume + uses ~/.ssh/authorized_keys, so the fingerprint is migration-stable).
+RUN printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes\n' \
+        > /etc/ssh/sshd_config.d/yoloclaude.conf
 
 # Install Node.js 20.x
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \

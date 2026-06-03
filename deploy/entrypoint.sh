@@ -38,6 +38,24 @@ done
 # applied by `fleet` after bring-up (not here).
 sudo tailscale up --hostname=yoloclaude --accept-dns=false || true
 
+# --- sshd: ssh into the sandbox with your key --------------------------------
+# `ssh dariofreni@yoloclaude` over the tailnet, anywhere the stack runs. The
+# host key is persisted in the home volume (~/.ssh-host) and installed as the
+# system host key on boot, so the fingerprint is STABLE across rebuilds and
+# host migrations (no known_hosts churn). authorized_keys lives in the home
+# volume too, so it travels with the stack.
+sudo mkdir -p /run/sshd
+HOSTKEY_DIR="$HOME/.ssh-host"
+mkdir -p "$HOSTKEY_DIR"
+if [ ! -f "$HOSTKEY_DIR/ssh_host_ed25519_key" ]; then
+    ssh-keygen -q -t ed25519 -f "$HOSTKEY_DIR/ssh_host_ed25519_key" -N ""
+fi
+sudo install -m 600 "$HOSTKEY_DIR/ssh_host_ed25519_key"     /etc/ssh/ssh_host_ed25519_key
+sudo install -m 644 "$HOSTKEY_DIR/ssh_host_ed25519_key.pub" /etc/ssh/ssh_host_ed25519_key.pub
+mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+[ -f "$HOME/.ssh/authorized_keys" ] && chmod 600 "$HOME/.ssh/authorized_keys"
+sudo /usr/sbin/sshd
+
 # --- trellm daemon ------------------------------------------------------------
 sudo touch /var/log/trellm.log /var/run/trellm.pid
 sudo chown "$(id -u):$(id -g)" /var/log/trellm.log /var/run/trellm.pid
