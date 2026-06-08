@@ -27,8 +27,11 @@ if [ -S /var/run/docker.sock ]; then
     fi
     id -nG | grep -qw "$GRP" || sudo usermod -aG "$GRP" "$USER_NAME"
 elif command -v dockerd >/dev/null 2>&1; then
-    sudo mkdir -p /var/log
-    sudo dockerd >/var/log/dockerd.log 2>&1 &
+    # root does the redirect (/var/log is root-only) and backgrounds dockerd.
+    # --group <our primary group> makes the socket owned by us, so `docker` works
+    # without docker-group membership (the image's docker group is an unrelated
+    # gid, a leftover of the DOCKER_GID build-arg colliding with systemd-network).
+    sudo -b sh -c "dockerd --group $(id -gn) >/var/log/dockerd.log 2>&1"
     # wait briefly for the socket so early `docker` calls don't race the daemon
     for _ in $(seq 1 20); do [ -S /var/run/docker.sock ] && break; sleep 0.5; done
 fi

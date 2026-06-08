@@ -56,6 +56,13 @@ services:
       # reconciles that GID at runtime when this line is present.
       # - /var/run/docker.sock:/var/run/docker.sock
 
+      # Docker-in-Docker storage. entrypoint.sh starts a private dockerd when no
+      # host socket is bound; its /var/lib/docker must sit on a real fs — not the
+      # container's overlay rootfs, or overlay2 fails to nest ("overlay … invalid
+      # argument"). A named volume gives it ext4 backing and persists built
+      # images across recreate. Not in fleet.toml volumes (local scratch only).
+      - yoloclaude-dind:/var/lib/docker
+
     deploy:
       resources:
         limits:
@@ -86,3 +93,5 @@ volumes:
     name: yoloclaude-src
   yoloclaude-tailscale:
     name: yoloclaude-tailscale
+  yoloclaude-dind:
+    name: yoloclaude-dind
