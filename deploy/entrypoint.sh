@@ -12,10 +12,12 @@ set -uo pipefail
 
 USER_NAME="$(id -un)"
 
-# --- Docker socket GID reconciliation (only if the socket is bind-mounted) ----
-# The docker.sock bind is disabled in compose.yaml by default. If re-enabled,
-# the host's docker GID differs per host (magnus=998, hertz=988) while the image
-# baked one GID at build time — reconcile at runtime so the user can reach it.
+# --- Docker: host socket (DooD) if bind-mounted, else our own dockerd (DinD) --
+# If compose.yaml bind-mounts /var/run/docker.sock we use the host daemon and
+# just reconcile the GID (it differs per host: magnus=998, hertz=988, baked at
+# build time). Otherwise we run our OWN dockerd inside the container — it's
+# privileged + cgroup:host, so Docker-in-Docker works. DinD storage lives in the
+# container's ephemeral layer (images/built containers don't survive recreate).
 if [ -S /var/run/docker.sock ]; then
     SOCK_GID="$(stat -c '%g' /var/run/docker.sock)"
     GRP="$(getent group "$SOCK_GID" | cut -d: -f1)"
@@ -24,6 +26,11 @@ if [ -S /var/run/docker.sock ]; then
         sudo groupadd -g "$SOCK_GID" "$GRP" 2>/dev/null || true
     fi
     id -nG | grep -qw "$GRP" || sudo usermod -aG "$GRP" "$USER_NAME"
+elif command -v dockerd >/dev/null 2>&1; then
+    sudo mkdir -p /var/log
+    sudo dockerd >/var/log/dockerd.log 2>&1 &
+    # wait briefly for the socket so early `docker` calls don't race the daemon
+    for _ in $(seq 1 20); do [ -S /var/run/docker.sock ] && break; sleep 0.5; done
 fi
 
 # --- Tailscale (kernel mode; identity lives in the /var/lib/tailscale volume) --

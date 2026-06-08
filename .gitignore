@@ -12,5 +12,11 @@ docker-compose.yaml
 .DS_Store
 Thumbs.db
 
+# Backups
+backups/
+
 # Logs
 *.log
+
+# Local
+.claude/

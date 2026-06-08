@@ -52,11 +52,12 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
     apt-get update && apt-get install -y gh && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Docker CLI
+# Install Docker (engine + CLI) — the engine enables Docker-in-Docker; the
+# container runs privileged, so `dockerd` can run inside it (host socket optional).
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu noble stable" | \
     tee /etc/apt/sources.list.d/docker.list && \
-    apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin && \
+    apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Firebase CLI and Gemini CLI globally
@@ -65,6 +66,14 @@ RUN npm install -g firebase-tools @google/gemini-cli
 # Install cloudflared
 RUN curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && \
     chmod +x /usr/local/bin/cloudflared
+
+# Install Tailscale
+RUN curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | \
+    tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | \
+    tee /etc/apt/sources.list.d/tailscale.list && \
+    apt-get update && apt-get install -y tailscale && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install act (run GitHub Actions locally)
 RUN curl -fsSL https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b /usr/local/bin
@@ -125,6 +134,10 @@ RUN echo 'alias ll="ls -la"' >> ~/.bashrc && \
 
 # Default working directory
 WORKDIR /home/${USERNAME}/src
+
+# Entrypoint starts tailscaled, then runs CMD
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["entrypoint.sh"]
 
 # Keep container running
 CMD ["sleep", "infinity"]

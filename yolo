@@ -21,31 +21,6 @@ log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Sync .claude.json from host to container
-# (bind mounts break when host file is replaced, so we copy instead)
-sync_claude_json_to_container() {
-    local container_name=$(parse_yaml_value "container_name")
-    container_name="${container_name:-yoloclaude}"
-    local host_file="${HOME}/.claude.json"
-
-    if [[ -f "$host_file" ]]; then
-        docker cp "$host_file" "${container_name}:/home/$(whoami)/.claude.json" 2>/dev/null && \
-            log_success "Synced .claude.json to container" || \
-            log_warn "Could not sync .claude.json to container"
-    fi
-}
-
-# Sync .claude.json from container to host
-sync_claude_json_to_host() {
-    local container_name=$(parse_yaml_value "container_name")
-    container_name="${container_name:-yoloclaude}"
-    local host_file="${HOME}/.claude.json"
-
-    docker cp "${container_name}:/home/$(whoami)/.claude.json" "$host_file" 2>/dev/null && \
-        log_success "Synced .claude.json to host" || \
-        log_warn "Could not sync .claude.json to host"
-}
-
 # Simple YAML parser for our config format
 parse_yaml_value() {
     local key="$1"
@@ -73,9 +48,6 @@ generate_env() {
     local container_name=$(parse_yaml_value "container_name")
     local username=$(parse_yaml_value "username")
     local src_dir=$(parse_yaml_value "src_dir")
-    local claude_config_dir=$(parse_yaml_value "claude_config_dir")
-    local claude_install_dir=$(parse_yaml_value "claude_install_dir")
-    local claude_bin=$(parse_yaml_value "claude_bin")
 
     # Default username to current host user
     username="${username:-$(whoami)}"
@@ -86,9 +58,6 @@ generate_env() {
 
     # Expand ~ in paths
     src_dir="${src_dir/#\~/$HOME}"
-    claude_config_dir="${claude_config_dir/#\~/$HOME}"
-    claude_install_dir="${claude_install_dir/#\~/$HOME}"
-    claude_bin="${claude_bin/#\~/$HOME}"
 
     # Get docker group GID for socket access
     local docker_gid=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "998")
@@ -101,9 +70,6 @@ USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 DOCKER_GID=${docker_gid}
 SRC_DIR=${src_dir}
-CLAUDE_CONFIG_DIR=${claude_config_dir}
-CLAUDE_INSTALL_DIR=${claude_install_dir}
-CLAUDE_BIN=${claude_bin}
 MEMORY_LIMIT=${memory:-8g}
 CPU_LIMIT=${cpus:-4}
 EOF
@@ -162,13 +128,12 @@ services:
     volumes:
       # Named volume for persistent home directory
       - yoloclaude-home:/home/${USERNAME}
-      # Bind mounts (overlay the named volume)
+      # Bind mount for source code
       - ${SRC_DIR}:/home/${USERNAME}/src
-      - ${CLAUDE_CONFIG_DIR}:/home/${USERNAME}/.claude
-      - ${CLAUDE_INSTALL_DIR}:/home/${USERNAME}/.local/share/claude:ro
-      - ${CLAUDE_BIN}:/home/${USERNAME}/.local/bin/claude:ro
       # Docker socket for Docker-in-Docker
       - /var/run/docker.sock:/var/run/docker.sock
+      # Persist Tailscale state across rebuilds
+      - yoloclaude-tailscale:/var/lib/tailscale
 COMPOSE_HEADER
 
     # Add extra mounts if any
@@ -176,10 +141,12 @@ COMPOSE_HEADER
         echo -e "${extra_mounts}" >> "$COMPOSE_FILE"
     fi
 
-    cat >> "$COMPOSE_FILE" << COMPOSE_PORTS
+    if [[ -n "$compose_ports" ]]; then
+        cat >> "$COMPOSE_FILE" << COMPOSE_PORTS
     ports:
 COMPOSE_PORTS
-    echo -e "${compose_ports}" >> "$COMPOSE_FILE"
+        echo -e "${compose_ports}" >> "$COMPOSE_FILE"
+    fi
 
     cat >> "$COMPOSE_FILE" << 'COMPOSE_FOOTER'
     deploy:
@@ -204,6 +171,8 @@ COMPOSE_PORTS
 volumes:
   yoloclaude-home:
     name: yoloclaude-home
+  yoloclaude-tailscale:
+    name: yoloclaude-tailscale
 COMPOSE_FOOTER
 
     log_success "Compose file generated with ports: $ports"
@@ -245,13 +214,13 @@ cmd_start() {
     log_info "Starting container..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d "$@"
     log_success "Container started!"
-    sync_claude_json_to_container
+
     log_info "Enter shell with: ./yolo shell"
 }
 
 cmd_stop() {
     check_prereqs
-    sync_claude_json_to_host
+
     log_info "Stopping container..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down "$@"
     log_success "Container stopped."
@@ -331,6 +300,112 @@ cmd_claude() {
     docker exec -it "$container_name" bash -c "cd ~/src/${project} && claude --dangerously-skip-permissions --continue"
 }
 
+cmd_backup() {
+    check_prereqs
+    local container_name=$(parse_yaml_value "container_name")
+    container_name="${container_name:-yoloclaude}"
+    local backup_dir="${SCRIPT_DIR}/backups"
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+
+    mkdir -p "$backup_dir"
+
+    # 1. Commit container filesystem (captures apt-get installs, system changes)
+    local image_tag="yoloclaude-backup:${timestamp}"
+    log_info "Committing container filesystem as ${image_tag}..."
+    docker commit "$container_name" "$image_tag"
+    log_success "Container committed as ${image_tag}"
+
+    # 2. Back up the home volume (excludes bind-mounted dirs like src, .claude)
+    local volume_backup="${backup_dir}/volume-${timestamp}.tar.gz"
+    log_info "Backing up home volume to ${volume_backup}..."
+    local username=$(parse_yaml_value "username")
+    username="${username:-$(whoami)}"
+    # tar exits 1 when files change during backup (expected on live container)
+    docker exec "$container_name" tar czf - \
+        --exclude="./src" \
+        --exclude="./.claude" \
+        --exclude="./.local/share/claude" \
+        --exclude="./.local/bin/claude" \
+        --warning=no-file-changed \
+        -C "/home/${username}" . \
+        > "$volume_backup" || [[ $? -eq 1 ]]
+    log_success "Volume backed up: $(du -h "$volume_backup" | cut -f1)"
+
+    # 3. Save the committed image as a tar file
+    local image_backup="${backup_dir}/image-${timestamp}.tar"
+    log_info "Exporting image to ${image_backup}..."
+    docker save "$image_tag" -o "$image_backup"
+    log_success "Image saved: $(du -h "$image_backup" | cut -f1)"
+
+    # Show summary
+    echo ""
+    log_success "Backup complete! Files in ${backup_dir}/"
+    echo "  Image:  image-${timestamp}.tar"
+    echo "  Volume: volume-${timestamp}.tar.gz"
+    echo ""
+    log_info "To restore, run: ./yolo restore ${timestamp}"
+}
+
+cmd_restore() {
+    check_prereqs
+    local timestamp="$1"
+    local backup_dir="${SCRIPT_DIR}/backups"
+
+    if [[ -z "$timestamp" ]]; then
+        log_info "Available backups:"
+        ls -1 "$backup_dir"/volume-*.tar.gz 2>/dev/null | \
+            sed 's/.*volume-//; s/\.tar\.gz//' | \
+            while read -r ts; do
+                local size_img=$(du -h "$backup_dir/image-${ts}.tar" 2>/dev/null | cut -f1 || echo "?")
+                local size_vol=$(du -h "$backup_dir/volume-${ts}.tar.gz" 2>/dev/null | cut -f1 || echo "?")
+                echo "  ${ts}  (image: ${size_img}, volume: ${size_vol})"
+            done
+        echo ""
+        log_info "Usage: ./yolo restore <timestamp>"
+        return 0
+    fi
+
+    local image_backup="${backup_dir}/image-${timestamp}.tar"
+    local volume_backup="${backup_dir}/volume-${timestamp}.tar.gz"
+
+    if [[ ! -f "$image_backup" ]] || [[ ! -f "$volume_backup" ]]; then
+        log_error "Backup files not found for timestamp: ${timestamp}"
+        return 1
+    fi
+
+    local container_name=$(parse_yaml_value "container_name")
+    container_name="${container_name:-yoloclaude}"
+
+    log_warn "This will stop the container and restore from backup ${timestamp}."
+    read -rp "Continue? [y/N] " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] || { log_info "Aborted."; return 0; }
+
+    # Stop container
+    log_info "Stopping container..."
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" down 2>/dev/null || true
+
+    # Load the backup image
+    local image_tag="yoloclaude-backup:${timestamp}"
+    log_info "Loading backup image..."
+    docker load -i "$image_backup"
+
+    # Restore volume contents
+    local username=$(parse_yaml_value "username")
+    username="${username:-$(whoami)}"
+    log_info "Restoring home volume..."
+    docker run --rm \
+        -v yoloclaude-home:/restore \
+        -v "$(realpath "$volume_backup")":/backup.tar.gz:ro \
+        ubuntu:24.04 \
+        bash -c "cd /restore && tar xzf /backup.tar.gz"
+    log_success "Volume restored."
+
+    # Restart
+    log_info "Starting container..."
+    cmd_start
+    log_success "Restore complete!"
+}
+
 cmd_help() {
     cat << EOF
 ${BLUE}YoloClaude${NC} - Secure Docker sandbox for AI coding agents
@@ -344,6 +419,8 @@ ${YELLOW}Commands:${NC}
   stop       Stop the container
   shell      Enter interactive shell, or run a command: ./yolo shell [cmd]
   claude     Run Claude in yolo mode: ./yolo claude <project>
+  backup     Back up container image and home volume
+  restore    Restore from a backup: ./yolo restore [timestamp]
   status     Show container status
   logs       Show container logs (use -f to follow)
   restart    Stop and start the container
@@ -360,6 +437,8 @@ ${YELLOW}Examples:${NC}
   ./yolo shell          # Enter the sandbox shell
   ./yolo shell ls -la   # Run a command in the container
   ./yolo logs -f        # Follow container logs
+  ./yolo backup         # Snapshot container + volume
+  ./yolo restore        # List available backups
   ./yolo rebuild        # Full rebuild (no cache)
 
 ${YELLOW}Inside the container:${NC}
@@ -382,6 +461,8 @@ case "${1:-help}" in
     logs)    shift; cmd_logs "$@" ;;
     restart) shift; cmd_restart "$@" ;;
     rebuild) shift; cmd_rebuild "$@" ;;
+    backup)  shift; cmd_backup "$@" ;;
+    restore) shift; cmd_restore "$@" ;;
     help|--help|-h) cmd_help ;;
     *)
         log_error "Unknown command: $1"
