@@ -17,8 +17,14 @@ USER_NAME="$(id -un)"
 # just reconcile the GID (it differs per host: magnus=998, hertz=988, baked at
 # build time). Otherwise we run our OWN dockerd inside the container — it's
 # privileged + cgroup:host, so Docker-in-Docker works. DinD storage lives in the
-# container's ephemeral layer (images/built containers don't survive recreate).
-if [ -S /var/run/docker.sock ]; then
+# yoloclaude-dind volume (/var/lib/docker), so built images survive recreate.
+#
+# Detection MUST use the mount table, not `[ -S /var/run/docker.sock ]`: /run is
+# not a tmpfs in this image, so a container stop/start (e.g. host reboot) leaves
+# the PREVIOUS run's dockerd socket behind. A bare `-S` test then mistakes that
+# dead socket for a bind-mounted host one, skips launching dockerd, and DinD is
+# silently down until the next recreate. `findmnt` only matches a real bind mount.
+if findmnt -n /var/run/docker.sock >/dev/null 2>&1; then
     SOCK_GID="$(stat -c '%g' /var/run/docker.sock)"
     GRP="$(getent group "$SOCK_GID" | cut -d: -f1)"
     if [ -z "$GRP" ]; then
@@ -27,13 +33,19 @@ if [ -S /var/run/docker.sock ]; then
     fi
     id -nG | grep -qw "$GRP" || sudo usermod -aG "$GRP" "$USER_NAME"
 elif command -v dockerd >/dev/null 2>&1; then
+    # Clear stale runtime state from a prior run before starting: a leftover
+    # socket plus a stale containerd.pid (whose PID a restart reassigns to some
+    # unrelated process) make a fresh dockerd hang on "containerd is still
+    # running" until it times out. /var/lib/docker (the dind volume) is left
+    # untouched so images persist; only the ephemeral /run state is wiped.
+    sudo rm -rf /var/run/docker.sock /var/run/docker /var/run/docker.pid
     # root does the redirect (/var/log is root-only) and backgrounds dockerd.
     # --group <our primary group> makes the socket owned by us, so `docker` works
     # without docker-group membership (the image's docker group is an unrelated
     # gid, a leftover of the DOCKER_GID build-arg colliding with systemd-network).
     sudo -b sh -c "dockerd --group $(id -gn) >/var/log/dockerd.log 2>&1"
-    # wait briefly for the socket so early `docker` calls don't race the daemon
-    for _ in $(seq 1 20); do [ -S /var/run/docker.sock ] && break; sleep 0.5; done
+    # wait for the daemon to actually answer, not just for the socket to appear
+    for _ in $(seq 1 40); do docker info >/dev/null 2>&1 && break; sleep 0.5; done
 fi
 
 # --- Tailscale (kernel mode; identity lives in the /var/lib/tailscale volume) --
