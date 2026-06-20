@@ -1,0 +1,30 @@
+# fleet service contract — consumed by the `fleet` CLI (github.com/satu/fleet).
+# Single source of truth for how yoloclaude (the trellm host) is built, deployed,
+# and migrated. fleet builds from this dir and deploys FROM this dir; the per-box
+# checkout location is in fleet's services.toml registry.
+[service]
+project          = "yoloclaude"
+image            = "yoloclaude-yoloclaude:latest"
+compose_file     = "compose.yaml"
+git_upstream     = "origin/main"          # build refuses if the checkout is behind this
+
+# Tailscale-identity-in-volume: identity_volume carries the tailnet node, synced first.
+identity_volume  = "yoloclaude-tailscale"
+# yoloclaude-dind = the in-container dockerd's /var/lib/docker (compose defines it).
+# Listed so migrate carries it — else the destination starts with an EMPTY DinD and
+# every image trellm built is lost. It can be the largest volume; drop it only for a
+# deliberate fresh-DinD migrate.
+volumes          = ["yoloclaude-tailscale", "yoloclaude-home", "yoloclaude-src", "yoloclaude-dind"]
+tailscale_node   = "yoloclaude"
+container        = "yoloclaude"
+health_url       = "http://yoloclaude:8077/"   # trellm status server
+
+stage_exclude    = ["./Dockerfile", "./Dockerfile.*", "./entrypoint.sh", "./fleet.service.toml"]
+
+# No exit_node: yoloclaude's Chrome is dev-only, direct datacenter-IP egress is fine.
+
+# branly (OVH): 22 GB shared with humphrey + 16 GB swap. Keep the 8g cap so a
+# runaway trellm card can't starve humphrey's WA session.
+[service.env_overrides.branly]
+MEMORY_LIMIT = "8g"
+# DOCKER_GID = "988"   # only if the docker.sock bind is re-enabled in compose.yaml

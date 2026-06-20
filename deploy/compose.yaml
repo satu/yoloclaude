@@ -29,6 +29,15 @@ services:
     container_name: ${CONTAINER_NAME:-yoloclaude}
     hostname: yoloclaude
 
+    # fleet metadata — the control plane discovers + reports the service from these
+    # (deployed-sha/at are stamped by `fleet` at bring-up via the shell env).
+    labels:
+      fleet.managed: "true"
+      fleet.service: "yoloclaude"
+      fleet.identity: "yoloclaude"
+      fleet.deployed-sha: "${FLEET_SHA:-}"
+      fleet.deployed-at: "${FLEET_AT:-}"
+
     environment:
       - DOCKER_API_VERSION=1.41
 
