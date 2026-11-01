@@ -17,7 +17,11 @@ identity_volume  = "yoloclaude-tailscale"
 volumes          = ["yoloclaude-tailscale", "yoloclaude-home", "yoloclaude-src", "yoloclaude-dind"]
 tailscale_node   = "yoloclaude"
 container        = "yoloclaude"
-health_url       = "http://yoloclaude:8077/"   # trellm status server
+# trellm's status server binds 127.0.0.1:8077 inside the container, so it is NOT
+# reachable at http://yoloclaude:8077/ over the tailnet (the old health_url probe
+# always reported DOWN, and would have rolled back every `fleet redeploy`). Probe it
+# from inside the container instead (curl is in the image): exit 0 = healthy.
+health_exec      = "curl -fsS -o /dev/null --max-time 8 http://127.0.0.1:8077/"
 
 stage_exclude    = ["./Dockerfile", "./Dockerfile.*", "./entrypoint.sh", "./fleet.service.toml"]
 
