@@ -106,8 +106,12 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
-# Create user with UID/GID/username matching host
-ARG USERNAME=dev
+# Create user with UID/GID/username matching host.
+# The defaults ARE the production values, kept equal to compose.yaml's build args:
+# fleet (and trellm's `fleet ship`) builds with a plain `docker build`, which never
+# sees compose's args. With USERNAME=dev the 2026-11 image ran as /home/dev while
+# the volumes mount at /home/dariofreni, so trellm never started (rolled back).
+ARG USERNAME=dariofreni
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 ARG DOCKER_GID=998
