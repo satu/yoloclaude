@@ -37,8 +37,10 @@ RUN apt-get update && apt-get install -y \
 RUN printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPubkeyAuthentication yes\n' \
         > /etc/ssh/sshd_config.d/yoloclaude.conf
 
-# Install Node.js 20.x
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+# Install Node.js 26.x, the Active LTS line since 2026-10. 20.x went EOL in
+# 2026-04. Pin the major instead of setup_lts.x so a major bump is a deliberate
+# monthly-update decision, not a silent rebuild side effect.
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
